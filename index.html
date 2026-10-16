@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>فاحص توافق الشريحة الإلكترونية (eSIM)</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: var(--card);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        .spec-box {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .spec-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .spec-item:last-child {
+            border-bottom: none;
+        }
+        .esim-result {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .yes { background: #dcfce7; color: #166534; }
+        .no { background: #fee2e2; color: #991b1b; }
+        .manual-check {
+            margin-top: 15px;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 1rem;
+            margin-top: 8px;
+        }
+        .tip {
+            font-size: 0.85rem;
+            color: #64748b;
+            background: #fffbeb;
+            padding: 10px;
+            border-radius: 8px;
+            border-right: 4px solid #f59e0b;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>فحص مواصفات الجهاز و eSIM</h1>
+
+    <div class="spec-box">
+        <div class="spec-item">
+            <span>نظام التشغيل:</span>
+            <strong id="os">جاري الفحص...</strong>
+        </div>
+        <div class="spec-item">
+            <span>الموديل المكتشف:</span>
+            <strong id="model">جاري الفحص...</strong>
+        </div>
+        <div class="spec-item">
+            <span>أبعاد الشاشة:</span>
+            <strong id="screen">جاري الفحص...</strong>
+        </div>
+        <div class="spec-item">
+            <span>الذاكرة العشوائية (التقريبية):</span>
+            <strong id="ram">جاري الفحص...</strong>
+        </div>
+    </div>
+
+    <div id="esim-status" class="esim-result">
+        جاري التحقق من دعم eSIM...
+    </div>
+
+    <div class="manual-check">
+        <label for="device-select"><strong>تأكيد يدوي سريع (اختر جهازك):</strong></label>
+        <select id="device-select" onchange="checkManualDevice()">
+            <option value="">-- اختر نوع جهازك للتأكيد --</option>
+            <option value="yes">iPhone XR / XS / 11 / 12 / 13 / 14 / 15 / 16 أو أحدث</option>
+            <option value="no">iPhone X / 8 / 7 أو أقدم</option>
+            <option value="yes">Samsung Galaxy S20 / S21 / S22 / S23 / S24 أو أحدث</option>
+            <option value="yes">Samsung Galaxy Z Flip / Z Fold (جميع الفئات)</option>
+            <option value="no">Samsung سلسلة A (معظمها لا يدعم ما عدا A54/A55/A35)</option>
+            <option value="yes">Google Pixel 3 أو أحدث</option>
+        </select>
+    </div>
+
+    <p class="tip">
+        💡 <strong>طريقة قاطعة لمعرفة دعم جهازك:</strong><br>
+        افتح لوحة الاتصال واطلب الكود <code>*#06#</code>، إذا ظهر لك رقم تحت اسم <strong>EID</strong> فجهازك يدعم الشريحة الإلكترونية (نعم)، وإذا لم يظهر فلا يدعمها (لا).
+    </p>
+</div>
+
+<script>
+    async function detectSpecs() {
+        const ua = navigator.userAgent;
+        let os = "غير معروف";
+        let model = "غير محدد (محمي من المتصفح)";
+        let esimSupported = null;
+
+        // 1. تحديد نظام التشغيل
+        if (/iPhone|iPad|iPod/.test(ua)) {
+            os = "iOS (Apple)";
+            model = "جهاز Apple (iPhone/iPad)";
+        } else if (/Android/.test(ua)) {
+            os = "Android";
+            const match = ua.match(/Android\s([0-9\.]*);\s([^;)]*)/);
+            if (match && match[2]) {
+                model = match[2].trim();
+            }
+        } else if (/Windows/.test(ua)) {
+            os = "Windows";
+        } else if (/Mac/.test(ua)) {
+            os = "macOS";
+        }
+
+        // محاولة جلب الموديل الدقيق عبر المتصفحات الحديثة (Client Hints)
+        if (navigator.userAgentData) {
+            try {
+                const values = await navigator.userAgentData.getHighEntropyValues(["model", "platformVersion"]);
+                if (values.model) model = values.model;
+            } catch (e) {}
+        }
+
+        // 2. تحديث بيانات الشاشة والرام
+        document.getElementById("os").innerText = os;
+        document.getElementById("model").innerText = model;
+        document.getElementById("screen").innerText = `${window.screen.width} × ${window.screen.height}`;
+        document.getElementById("ram").innerText = navigator.deviceMemory ? `${navigator.deviceMemory} GB+` : "غير متاح (محمي)";
+
+        // 3. فحص مبدئي لدعم eSIM بناءً على الموديل أو الشاشة
+        const statusBox = document.getElementById("esim-status");
+        
+        if (os === "iOS (Apple)") {
+            // أجهزة الآيفون الحديثة أبعاد شاشاتها المنطقية تدل غالباً على جيل XR فما فوق
+            const height = Math.max(window.screen.width, window.screen.height);
+            if (height >= 812) {
+                updateEsimUI(true, "نعم (يدعم eSIM بنسبة كبيرة بناءً على أبعاد الشاشة)");
+            } else {
+                updateEsimUI(false, "لا (يبدو أنه إصدار iPhone قديم)");
+            }
+        } else if (os === "Android" && model !== "غير محدد (محمي من المتصفح)") {
+            // فحص بعض الموديلات الشهيرة في أندرويد
+            const esimModels = /SM-S9|SM-G98|SM-G99|SM-F9|SM-F7|Pixel [3-9]|SM-A54|SM-A55|SM-A35/i;
+            if (esimModels.test(model)) {
+                updateEsimUI(true, "نعم (الموديل المكتشف يدعم eSIM)");
+            } else {
+                statusBox.className = "esim-result";
+                statusBox.style.background = "#e0f2fe";
+                statusBox.style.color = "#0369a1";
+                statusBox.innerText = "يرجى الاختيار من القائمة بالأسفل للتأكيد";
+            }
+        } else {
+            updateEsimUI(false, "غير مدعوم أو يتطلب تأكيداً يدوياً من القائمة بالأسفل");
+        }
+    }
+
+    function updateEsimUI(isSupported, message) {
+        const statusBox = document.getElementById("esim-status");
+        if (isSupported) {
+            statusBox.className = "esim-result yes";
+            statusBox.innerText = "✅ يدعم الشريحة الإلكترونية: " + message;
+        } else {
+            statusBox.className = "esim-result no";
+            statusBox.innerText = "❌ لا يدعم الشريحة الإلكترونية: " + message;
+        }
+    }
+
+    function checkManualDevice() {
+        const val = document.getElementById("device-select").value;
+        if (val === "yes") {
+            updateEsimUI(true, "نعم (بناءً على اختيارك)");
+        } else if (val === "no") {
+            updateEsimUI(false, "لا (بناءً على اختيارك)");
+        }
+    }
+
+    detectSpecs();
+</script>
+
+</body>
+</html>
